@@ -17,15 +17,84 @@ limitations under the License.
 package cmd
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
+	"log"
+	"net/http"
 	"os"
+	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"github.com/tenntenn/natureremo"
 )
 
+type Metrics struct {
+	Temperature  *prometheus.GaugeVec
+	Humidity     *prometheus.GaugeVec
+	Illumination *prometheus.GaugeVec
+	Movement     *prometheus.GaugeVec
+}
+
+func NewMetrics() *Metrics {
+	namespace := "nature_remo"
+	deviceLabels := []string{
+		"id",
+		"name",
+		"firmware_version",
+		"mac_address",
+		"serial_number",
+	}
+
+	temperature := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "temperature",
+		Help:      "current temperature",
+	}, deviceLabels)
+	humidity := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "humidity",
+		Help:      "current humidity",
+	}, deviceLabels)
+	illumination := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "illumination",
+		Help:      "current illumination",
+	}, deviceLabels)
+	movement := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: namespace,
+		Name:      "movement",
+		Help:      "current movement",
+	}, deviceLabels)
+	return &Metrics{
+		Temperature:  temperature,
+		Humidity:     humidity,
+		Illumination: illumination,
+		Movement:     movement,
+	}
+}
+
+func (m *Metrics) Set(devices []*natureremo.Device) error {
+	for _, device := range devices {
+		labels := prometheus.Labels{
+			"id":               device.ID,
+			"name":             device.Name,
+			"firmware_version": device.FirmwareVersion,
+			"mac_address":      device.MacAddress,
+			"serial_number":    device.SerialNumber,
+		}
+		m.Temperature.With(labels).Set(device.NewestEvents[natureremo.SensorTypeTemperature].Value)
+		m.Humidity.With(labels).Set(device.NewestEvents[natureremo.SensorTypeHumidity].Value)
+		m.Illumination.With(labels).Set(device.NewestEvents[natureremo.SensorTypeIllumination].Value)
+		m.Movement.With(labels).Set(device.NewestEvents[natureremo.SensorTypeMovement].Value)
+	}
+	return nil
+}
+
 var (
+	port int
+
 	accessToken string
 
 	// rootCmd represents the base command when called without any subcommands
@@ -39,14 +108,42 @@ that Prometheus can scrape. It is designed to help monitor and analyze
 the performance and data from Nature Remo devices`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client := natureremo.NewClient(accessToken)
+			metrics := NewMetrics()
 
-			devices, err := client.DeviceService.GetAll(cmd.Context())
-			if err != nil {
-				return fmt.Errorf("failed to get all devices from Nature Remo API: %v", err)
+			update := func(ctx context.Context) error {
+				devices, err := client.DeviceService.GetAll(ctx)
+				if err != nil {
+					return fmt.Errorf("failed to get all devices from Nature Remo API: %v", err)
+				}
+				if err := metrics.Set(devices); err != nil {
+					return fmt.Errorf("failed to set metrics: %v", err)
+				}
+				return nil
 			}
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetIndent("", "  ")
-			if err := enc.Encode(devices); err != nil {
+
+			go func() {
+				if err := update(cmd.Context()); err != nil {
+					log.Fatal(err)
+				}
+
+				timer := time.NewTimer(time.Second * 60)
+				defer timer.Stop()
+				for {
+					select {
+					case <-cmd.Context().Done():
+						return
+					case <-timer.C:
+						if err := update(cmd.Context()); err != nil {
+							log.Fatal(err)
+						}
+					}
+				}
+			}()
+
+			reg := prometheus.NewRegistry()
+			reg.MustRegister(metrics.Temperature, metrics.Humidity, metrics.Illumination, metrics.Movement)
+			http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
+			if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
 				return err
 			}
 			return nil
@@ -64,13 +161,6 @@ func Execute() {
 }
 
 func init() {
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.nature-remo-exporter.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
+	rootCmd.PersistentFlags().IntVar(&port, "port", 9199, "Port to listen on")
 	rootCmd.PersistentFlags().StringVar(&accessToken, "token", "", "Nature Remo access token")
 }
