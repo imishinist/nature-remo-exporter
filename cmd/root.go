@@ -19,7 +19,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"time"
@@ -108,6 +108,8 @@ This tool collects metrics from Nature Remo Cloud API and exposes them in a form
 that Prometheus can scrape. It is designed to help monitor and analyze 
 the performance and data from Nature Remo devices`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+
 			client := natureremo.NewClient(accessToken)
 			metrics := NewMetrics()
 
@@ -124,7 +126,7 @@ the performance and data from Nature Remo devices`,
 
 			go func() {
 				if err := update(cmd.Context()); err != nil {
-					log.Fatal(err)
+					logger.Error(err.Error())
 				}
 
 				timer := time.NewTimer(interval)
@@ -132,11 +134,13 @@ the performance and data from Nature Remo devices`,
 				for {
 					select {
 					case <-cmd.Context().Done():
+						logger.Info("shutting down")
 						return
 					case <-timer.C:
 						if err := update(cmd.Context()); err != nil {
-							log.Fatal(err)
+							logger.Error(err.Error())
 						}
+						logger.Debug("metrics updated")
 					}
 				}
 			}()
@@ -144,6 +148,8 @@ the performance and data from Nature Remo devices`,
 			reg := prometheus.NewRegistry()
 			reg.MustRegister(metrics.Temperature, metrics.Humidity, metrics.Illumination, metrics.Movement)
 			http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
+
+			logger.Info(fmt.Sprintf("Listening on port %d", port))
 			if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
 				return err
 			}
