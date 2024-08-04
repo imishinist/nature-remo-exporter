@@ -93,7 +93,8 @@ func (m *Metrics) Set(devices []*natureremo.Device) error {
 }
 
 var (
-	port int
+	port     int
+	interval time.Duration
 
 	accessToken string
 
@@ -126,7 +127,7 @@ the performance and data from Nature Remo devices`,
 					log.Fatal(err)
 				}
 
-				timer := time.NewTimer(time.Second * 60)
+				timer := time.NewTimer(interval)
 				defer timer.Stop()
 				for {
 					select {
@@ -162,5 +163,6 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().IntVar(&port, "port", 9199, "Port to listen on")
+	rootCmd.PersistentFlags().DurationVar(&interval, "interval", time.Second*30, "Interval between metrics refresh")
 	rootCmd.PersistentFlags().StringVar(&accessToken, "token", "", "Nature Remo access token")
 }
