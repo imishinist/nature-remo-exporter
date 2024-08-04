@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"github.com/tenntenn/natureremo"
@@ -147,6 +148,7 @@ the performance and data from Nature Remo devices`,
 			}()
 
 			reg := prometheus.NewRegistry()
+			reg.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 			reg.MustRegister(metrics.Temperature, metrics.Humidity, metrics.Illumination, metrics.Movement)
 			http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
 
