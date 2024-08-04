@@ -129,16 +129,17 @@ the performance and data from Nature Remo devices`,
 					logger.Error(err.Error())
 				}
 
-				timer := time.NewTimer(interval)
-				defer timer.Stop()
+				ticker := time.NewTicker(interval)
+				defer ticker.Stop()
 				for {
 					select {
 					case <-cmd.Context().Done():
 						logger.Info("shutting down")
 						return
-					case <-timer.C:
+					case <-ticker.C:
 						if err := update(cmd.Context()); err != nil {
 							logger.Error(err.Error())
+							return
 						}
 						logger.Debug("metrics updated")
 					}
