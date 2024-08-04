@@ -83,6 +83,7 @@ func (m *Metrics) Set(devices []*natureremo.Device) error {
 			"name":             device.Name,
 			"firmware_version": device.FirmwareVersion,
 			"mac_address":      device.MacAddress,
+			"bt_mac_address":   device.BtMacAddress,
 			"serial_number":    device.SerialNumber,
 		}
 		m.Temperature.With(labels).Set(device.NewestEvents[natureremo.SensorTypeTemperature].Value)
