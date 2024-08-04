@@ -17,21 +17,42 @@ limitations under the License.
 package cmd
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/tenntenn/natureremo"
 )
 
-// rootCmd represents the base command when called without any subcommands
-var rootCmd = &cobra.Command{
-	Use:   "nature-remo-exporter",
-	Short: "A Prometheus exporter for Nature Remo",
-	Long: `Nature Remo Exporter is a Prometheus exporter for Nature Remo smart devices.
+var (
+	accessToken string
+
+	// rootCmd represents the base command when called without any subcommands
+	rootCmd = &cobra.Command{
+		Use:   "nature-remo-exporter",
+		Short: "A Prometheus exporter for Nature Remo",
+		Long: `Nature Remo Exporter is a Prometheus exporter for Nature Remo smart devices.
 
 This tool collects metrics from Nature Remo Cloud API and exposes them in a format 
 that Prometheus can scrape. It is designed to help monitor and analyze 
 the performance and data from Nature Remo devices`,
-}
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client := natureremo.NewClient(accessToken)
+
+			devices, err := client.DeviceService.GetAll(cmd.Context())
+			if err != nil {
+				return fmt.Errorf("failed to get all devices from Nature Remo API: %v", err)
+			}
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			if err := enc.Encode(devices); err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+)
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
@@ -51,5 +72,5 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.PersistentFlags().StringVar(&accessToken, "token", "", "Nature Remo access token")
 }
