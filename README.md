@@ -15,7 +15,24 @@ Follow these steps to create an Access Token.
 
 ## Installation
 
-TODO
+Install from GitHub Releases.
+
+https://github.com/imishinist/nature-remo-exporter/releases
+
+### example
+
+Install to `/tmp/nature-remo-exporter`.
+
+```bash
+mkdir -p /tmp/nature-remo-exporter
+version=0.1.0 curl -sSL -o- https://github.com/imishinist/nature-remo-exporter/releases/download/v${version}/nature-remo-exporter_Linux_x86_64.tar.gz | tar xzvf - -C /tmp/nature-remo-exporter
+```
+
+or install from go install.
+
+```bash
+go install github.com/imishinist/nature-remo-exporter@latest
+```
 
 ## Run
 
