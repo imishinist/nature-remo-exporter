@@ -2,6 +2,8 @@
 
 Nature Remo Exporter is a Prometheus Exporter for [Nature Remo](https://shop.nature.global/collections/nature-remo).
 
+![Prometheus Exporter Screenshots](/assets/prometheus_exporter.png)
+
 ## Getting started
 
 ### Creating Access Token
