@@ -44,6 +44,7 @@ func NewMetrics() *Metrics {
 		"id",
 		"name",
 		"firmware_version",
+		"bt_mac_address",
 		"mac_address",
 		"serial_number",
 	}
