@@ -37,7 +37,7 @@ type Metrics struct {
 	Illumination *prometheus.GaugeVec
 	Movement     *prometheus.GaugeVec
 
-	MovementCounter *prometheus.CounterVec
+	MovementsTotal *prometheus.CounterVec
 
 	lastMovements map[string]time.Time
 }
@@ -74,16 +74,16 @@ func NewMetrics() *Metrics {
 		Help:      "current movement",
 	}, deviceLabels)
 
-	movementCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
+	movementsTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
-		Name:      "movement_counter",
+		Name:      "movements_total",
 	}, deviceLabels)
 	return &Metrics{
-		Temperature:     temperature,
-		Humidity:        humidity,
-		Illumination:    illumination,
-		Movement:        movement,
-		MovementCounter: movementCounter,
+		Temperature:    temperature,
+		Humidity:       humidity,
+		Illumination:   illumination,
+		Movement:       movement,
+		MovementsTotal: movementsTotal,
 
 		lastMovements: make(map[string]time.Time),
 	}
@@ -110,7 +110,7 @@ func (m *Metrics) Set(devices []*natureremo.Device) error {
 		if m.updateLastMovement(device.ID, movement.CreatedAt) {
 			inc = 1
 		}
-		m.MovementCounter.With(labels).Add(inc)
+		m.MovementsTotal.With(labels).Add(inc)
 	}
 	return nil
 }
@@ -184,7 +184,7 @@ the performance and data from Nature Remo devices`,
 
 			reg := prometheus.NewRegistry()
 			reg.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
-			reg.MustRegister(metrics.Temperature, metrics.Humidity, metrics.Illumination, metrics.Movement, metrics.MovementCounter)
+			reg.MustRegister(metrics.Temperature, metrics.Humidity, metrics.Illumination, metrics.Movement, metrics.MovementsTotal)
 			http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
 
 			logger.Info(fmt.Sprintf("Listening on port %d", port))

@@ -73,7 +73,7 @@ https://swagger.nature.global/#/default/get_1_devices
 | `nature_remo_humidity`         | current humidity         |
 | `nature_remo_illumination`     | current illumination     |
 | `nature_remo_movement`         | current movement         |
-| `nature_remo_movement_counter` | current movement counter |
+| `nature_remo_movements_total`  | current movement counter |
 | `nature_remo_temperature`      | current temperature      |
 
 ### Labels
