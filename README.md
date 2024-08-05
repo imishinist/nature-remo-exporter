@@ -70,6 +70,7 @@ https://swagger.nature.global/#/default/get_1_devices
 
 | metrics name                   | description              |
 |--------------------------------|--------------------------|
+| `nature_remo_api_calls_total`  | total API calls          |
 | `nature_remo_humidity`         | current humidity         |
 | `nature_remo_illumination`     | current illumination     |
 | `nature_remo_movement`         | current movement         |

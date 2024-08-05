@@ -32,6 +32,8 @@ import (
 )
 
 type Metrics struct {
+	APICallsTotal *prometheus.CounterVec
+
 	Temperature  *prometheus.GaugeVec
 	Humidity     *prometheus.GaugeVec
 	Illumination *prometheus.GaugeVec
@@ -52,6 +54,12 @@ func NewMetrics() *Metrics {
 		"mac_address",
 		"serial_number",
 	}
+
+	apiCallsTotal := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "api_calls_total",
+		Help:      "Total number of API calls",
+	}, []string{})
 
 	temperature := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
@@ -79,6 +87,7 @@ func NewMetrics() *Metrics {
 		Name:      "movements_total",
 	}, deviceLabels)
 	return &Metrics{
+		APICallsTotal:  apiCallsTotal,
 		Temperature:    temperature,
 		Humidity:       humidity,
 		Illumination:   illumination,
@@ -87,6 +96,10 @@ func NewMetrics() *Metrics {
 
 		lastMovements: make(map[string]time.Time),
 	}
+}
+
+func (m *Metrics) IncAPICallsTotal() {
+	m.APICallsTotal.WithLabelValues().Inc()
 }
 
 func (m *Metrics) Set(devices []*natureremo.Device) error {
@@ -155,6 +168,7 @@ the performance and data from Nature Remo devices`,
 				if err != nil {
 					return fmt.Errorf("failed to get all devices from Nature Remo API: %v", err)
 				}
+				metrics.IncAPICallsTotal()
 				if err := metrics.Set(devices); err != nil {
 					return fmt.Errorf("failed to set metrics: %v", err)
 				}
@@ -184,6 +198,7 @@ the performance and data from Nature Remo devices`,
 
 			reg := prometheus.NewRegistry()
 			reg.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+			reg.MustRegister(metrics.APICallsTotal)
 			reg.MustRegister(metrics.Temperature, metrics.Humidity, metrics.Illumination, metrics.Movement, metrics.MovementsTotal)
 			http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
 
