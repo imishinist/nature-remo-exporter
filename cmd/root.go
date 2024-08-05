@@ -125,7 +125,7 @@ func (m *Metrics) updateLastMovement(key string, lastMovement time.Time) bool {
 		return false
 	}
 
-	m.lastMovements[key] = l
+	m.lastMovements[key] = lastMovement
 	return true
 }
 
@@ -176,7 +176,6 @@ the performance and data from Nature Remo devices`,
 					case <-ticker.C:
 						if err := update(cmd.Context()); err != nil {
 							logger.Error(err.Error())
-							return
 						}
 						logger.Debug("metrics updated")
 					}
