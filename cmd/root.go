@@ -36,6 +36,10 @@ type Metrics struct {
 	Humidity     *prometheus.GaugeVec
 	Illumination *prometheus.GaugeVec
 	Movement     *prometheus.GaugeVec
+
+	MovementCounter *prometheus.CounterVec
+
+	lastMovements map[string]time.Time
 }
 
 func NewMetrics() *Metrics {
@@ -69,11 +73,19 @@ func NewMetrics() *Metrics {
 		Name:      "movement",
 		Help:      "current movement",
 	}, deviceLabels)
+
+	movementCounter := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "movement_counter",
+	}, deviceLabels)
 	return &Metrics{
-		Temperature:  temperature,
-		Humidity:     humidity,
-		Illumination: illumination,
-		Movement:     movement,
+		Temperature:     temperature,
+		Humidity:        humidity,
+		Illumination:    illumination,
+		Movement:        movement,
+		MovementCounter: movementCounter,
+
+		lastMovements: make(map[string]time.Time),
 	}
 }
 
@@ -90,9 +102,31 @@ func (m *Metrics) Set(devices []*natureremo.Device) error {
 		m.Temperature.With(labels).Set(device.NewestEvents[natureremo.SensorTypeTemperature].Value)
 		m.Humidity.With(labels).Set(device.NewestEvents[natureremo.SensorTypeHumidity].Value)
 		m.Illumination.With(labels).Set(device.NewestEvents[natureremo.SensorTypeIllumination].Value)
-		m.Movement.With(labels).Set(device.NewestEvents[natureremo.SensorTypeMovement].Value)
+
+		movement := device.NewestEvents[natureremo.SensorTypeMovement]
+		m.Movement.With(labels).Set(movement.Value)
+
+		inc := 0.0
+		if m.updateLastMovement(device.ID, movement.CreatedAt) {
+			inc = 1
+		}
+		m.MovementCounter.With(labels).Add(inc)
 	}
 	return nil
+}
+
+func (m *Metrics) updateLastMovement(key string, lastMovement time.Time) bool {
+	l, ok := m.lastMovements[key]
+	if !ok {
+		m.lastMovements[key] = lastMovement
+		return false
+	}
+	if l == lastMovement {
+		return false
+	}
+
+	m.lastMovements[key] = l
+	return true
 }
 
 var (
@@ -151,7 +185,7 @@ the performance and data from Nature Remo devices`,
 
 			reg := prometheus.NewRegistry()
 			reg.MustRegister(collectors.NewGoCollector(), collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
-			reg.MustRegister(metrics.Temperature, metrics.Humidity, metrics.Illumination, metrics.Movement)
+			reg.MustRegister(metrics.Temperature, metrics.Humidity, metrics.Illumination, metrics.Movement, metrics.MovementCounter)
 			http.Handle("/metrics", promhttp.HandlerFor(reg, promhttp.HandlerOpts{Registry: reg}))
 
 			logger.Info(fmt.Sprintf("Listening on port %d", port))
